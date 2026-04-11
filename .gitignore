@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Compiled extensions
+*.so
+
+# Benchmark raw data
+nanoPD/benchmark/results.json
+nanoPD/benchmark/results_h20.json
+nanoPD/benchmark/results_poisson.json
+nanoPD/benchmark/results_poisson_h20.json
+
+# Cost model raw profiling data
+nanoPD/cost_model/profile_data.pt
+nanoPD/cost_model/profile_data_h20.pt
+
+# Demo output (generated at runtime)
+output/
+
+# Nsys profiling reports
+*.nsys-rep
+
+# Test artifacts
+.hypothesis/
+
+# Common editor / OS junk
+.DS_Store
+*.swp
+*.swo
+.vscode/

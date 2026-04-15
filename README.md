@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776ab?logo=python&logoColor=white">
   <img src="https://img.shields.io/badge/PyTorch-2.1%2B-ee4c2c?logo=pytorch&logoColor=white">
   <img src="https://img.shields.io/badge/CUDA-11.8%2B-76b900?logo=nvidia&logoColor=white">
-  <img src="https://img.shields.io/badge/Hardware-RTX_4090_×8_|_H20-blueviolet">
+  <img src="https://img.shields.io/badge/Hardware-H20-blueviolet">
   <img src="https://img.shields.io/badge/Model-Qwen3--8B-orange">
   <img src="https://img.shields.io/badge/License-MIT-green">
 </p>

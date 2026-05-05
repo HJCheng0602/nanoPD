@@ -2,6 +2,15 @@ from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 import torch
 import torch.nn.functional as F
 
+# ---------------------------------------------------------------------------
+# Auto-select attention backend: FlashInfer > hand-written CUDA fallback
+# ---------------------------------------------------------------------------
+try:
+    from paged_attention.flashinfer_backend import run_kernel as _paged_attn_run_kernel
+    _HAS_FLASHINFER = True
+except Exception:
+    _HAS_FLASHINFER = False
+
 class ModelRunner:
     def __init__(self, model_path:str, device:str="cuda", max_blocks:int=512,block_size:int=16 ):
         self.device = device
@@ -267,6 +276,12 @@ class ModelRunner:
         return self.tokenizer.decode(generated, skip_special_tokens=True)
 
 def run_kernel(query:torch.Tensor, key_cache, value_cache, block_tables, seq_lens, scale, block_size, max_blocks_per_seq)-> torch.Tensor:
+    if _HAS_FLASHINFER:
+        return _paged_attn_run_kernel(
+            query, key_cache, value_cache,
+            block_tables, seq_lens,
+            scale, block_size, max_blocks_per_seq
+        )
     import paged_kernels
     out = torch.zeros_like(query)
     paged_kernels.paged_attention_forward(

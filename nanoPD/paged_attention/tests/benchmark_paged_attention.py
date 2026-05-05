@@ -25,10 +25,10 @@ import torch
 import torch.utils.benchmark as tb
 
 try:
-    import paged_attn
+    import paged_kernels as paged_attn
     HAS_PAGED_ATTN = True
 except ImportError:
-    print("ERROR: paged_attn not built. Run: pip install -e .")
+    print("ERROR: paged_kernels not built. Run: python setup.py build_ext --inplace")
     sys.exit(1)
 
 

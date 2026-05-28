@@ -229,3 +229,118 @@ class TestFullLifecycle:
         table = bsm.get_block_table(seq)
         for idx in table:
             assert 0 <= idx < NUM_BLOCKS
+
+
+# ------------------------------------------------------------------ #
+# 6. Optional prefix cache                                            #
+# ------------------------------------------------------------------ #
+
+class TestPrefixCache:
+    def test_disabled_prefix_cache_uses_normal_allocation(self):
+        bsm = BlockSpaceManager(BLOCK_SIZE, NUM_BLOCKS)
+        group = make_group(0, prompt_len=8)
+        seq = group.get_seqs()[0]
+
+        assert bsm.match_cached_prefix(seq) is None
+        assert bsm.can_allocate_with_prefix_cache(group)
+
+        matches = bsm.allocate_with_prefix_cache(group)
+
+        assert matches == {}
+        assert bsm.get_block_table(seq)
+        assert bsm.num_cached_blocks == 0
+
+    def test_cache_match_returns_complete_blocks_only(self):
+        bsm = BlockSpaceManager(
+            BLOCK_SIZE,
+            NUM_BLOCKS,
+            enable_prefix_cache=True,
+        )
+        group = make_group(0, prompt_len=6)
+        bsm.allocate(group)
+        seq = group.get_seqs()[0]
+
+        result = bsm.cache_sequence(seq)
+        match = bsm.match_cached_prefix(make_seq(1, prompt_len=6))
+
+        assert result.num_blocks == 1
+        assert result.num_tokens == BLOCK_SIZE
+        assert match is not None
+        assert match.num_tokens == BLOCK_SIZE
+        assert match.block_table == bsm.get_block_table(seq)[:1]
+
+    def test_free_can_keep_cached_blocks(self):
+        bsm = BlockSpaceManager(
+            BLOCK_SIZE,
+            NUM_BLOCKS,
+            enable_prefix_cache=True,
+        )
+        group = make_group(0, prompt_len=8)
+        bsm.allocate(group)
+        seq = group.get_seqs()[0]
+        cached_table = bsm.get_block_table(seq)
+
+        bsm.free(seq, cache=True)
+        match = bsm.match_cached_prefix(make_seq(1, prompt_len=8))
+
+        assert bsm.num_cached_blocks == 2
+        assert bsm.num_free_blocks == NUM_BLOCKS - 2
+        assert match is not None
+        assert match.block_table == cached_table
+
+        bsm.clear_prefix_cache()
+        assert bsm.num_free_blocks == NUM_BLOCKS
+
+    def test_allocate_with_prefix_cache_reuses_cached_blocks(self):
+        bsm = BlockSpaceManager(
+            BLOCK_SIZE,
+            NUM_BLOCKS,
+            enable_prefix_cache=True,
+        )
+        group = make_group(0, prompt_len=8)
+        bsm.allocate(group)
+        seq = group.get_seqs()[0]
+        cached_table = bsm.get_block_table(seq)
+        bsm.free(seq, cache=True)
+        free_before = bsm.num_free_blocks
+
+        new_group = make_group(1, prompt_len=10)
+        new_seq = new_group.get_seqs()[0]
+        matches = bsm.allocate_with_prefix_cache(new_group)
+        new_table = bsm.get_block_table(new_seq)
+
+        assert matches[new_seq.seq_id] is not None
+        assert matches[new_seq.seq_id].num_blocks == 2
+        assert new_table[:2] == cached_table
+        assert len(new_table) == 3
+        assert new_seq.num_computed_tokens == 8
+        assert bsm.num_free_blocks == free_before - 1
+
+        bsm.free(new_seq)
+        bsm.clear_prefix_cache()
+        assert bsm.num_free_blocks == NUM_BLOCKS
+
+    def test_duplicate_insert_does_not_retain_new_blocks(self):
+        bsm = BlockSpaceManager(
+            BLOCK_SIZE,
+            NUM_BLOCKS,
+            enable_prefix_cache=True,
+        )
+        group = make_group(0, prompt_len=8)
+        bsm.allocate(group)
+        first = group.get_seqs()[0]
+        bsm.free(first, cache=True)
+
+        duplicate_group = make_group(1, prompt_len=8)
+        bsm.allocate(duplicate_group)
+        duplicate = duplicate_group.get_seqs()[0]
+        result = bsm.cache_sequence(duplicate)
+        bsm.free(duplicate)
+
+        assert result.num_new_blocks == 0
+        assert result.num_existing_blocks == 2
+        assert bsm.num_cached_blocks == 2
+        assert bsm.num_free_blocks == NUM_BLOCKS - 2
+
+        bsm.clear_prefix_cache()
+        assert bsm.num_free_blocks == NUM_BLOCKS

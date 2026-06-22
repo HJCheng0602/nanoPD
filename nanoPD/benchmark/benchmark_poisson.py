@@ -342,6 +342,7 @@ def run_poisson_adaptive(
             scheduler.dw.step()
         torch.cuda.synchronize(scheduler.dw.device)
         # clean up warmup state so it does not pollute the block manager
+        scheduler.dw._pending.clear()
         scheduler.dw.running.clear()
         scheduler.dw.finished.clear()
         scheduler.dw.block_manager.free(seq)
